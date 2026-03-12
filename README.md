@@ -1,4 +1,4 @@
-# Weather App
+# Weather CLI
 ### Your Gateway to Real-Time Weather Information
 
 ---
