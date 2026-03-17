@@ -16,8 +16,6 @@ from services.history_service import HistoryService
 from favorites.favorites_service import FavoritesService
 from resources.goods import PREDEFINED_CITIES, WEATHER_TIPS, WEATHER_QUOTES
 
-UNITS = "metric" # Default to metric
-
 class WeatherDashboard(Static):
     """Main dashboard view."""
     def compose(self) -> ComposeResult:
@@ -34,15 +32,6 @@ class WeatherSearch(Static):
             Label("Search City", id="view-title"),
             Input(placeholder="Enter city name...", id="search-input"),
             Container(id="search-results"),
-            id="main-view"
-        )
-
-class ForecastView(Static):
-    """Forecast view."""
-    def compose(self) -> ComposeResult:
-        yield Vertical(
-            Label("Weather Forecast", id="view-title"),
-            Container(id="forecast-content"),
             id="main-view"
         )
 
@@ -178,36 +167,14 @@ class WeatherApp(App):
         margin-top: 1;
         height: 3;
     }
-    .unit-label {
-        color: #f5c2e7;
-        margin-top: 1;
-    }
-    .forecast-row {
-        height: 1;
-        margin-bottom: 0;
-    }
-    .forecast-time {
-        color: #89b4fa;
-        width: 22;
-    }
-    .forecast-temp {
-        color: #fab387;
-        width: 8;
-    }
-    .forecast-desc {
-        color: #a6e3a1;
-    }
     """
 
     BINDINGS = [
         Binding("q", "quit", "Quit"),
         Binding("d", "switch_view('home')", "Dashboard"),
         Binding("s", "switch_view('search')", "Search"),
-        Binding("c", "switch_view('countries')", "Countries"),
         Binding("f", "switch_view('favorites')", "Favorites"),
         Binding("h", "switch_view('history')", "History"),
-        Binding("u", "toggle_units", "Toggle Units (C/F)"),
-        Binding("t", "toggle_theme", "Toggle Theme"),
     ]
 
     def compose(self) -> ComposeResult:
@@ -217,7 +184,6 @@ class WeatherApp(App):
             yield WeatherDashboard(id="home-view")
             yield WeatherSearch(id="search-view")
             yield CountriesView(id="countries-view")
-            yield ForecastView(id="forecast-view")
             yield FavoritesView(id="favorites-view")
             yield HistoryView(id="history-view")
             yield AboutView(id="about-view")
@@ -225,31 +191,11 @@ class WeatherApp(App):
 
     def on_mount(self) -> None:
         # Initial view setup
-        for view_id in ["search", "countries", "forecast", "favorites", "history", "about"]:
+        for view_id in ["search", "countries", "favorites", "history", "about"]:
             self.query_one(f"#{view_id}-view").add_class("hidden")
         
-        self.dark = True # Start in dark mode
         self.update_history_table()
         self.load_default_dashboard()
-        self.update_footer()
-
-    def update_footer(self) -> None:
-        unit_str = "Metric (°C)" if UNITS == "metric" else "Imperial (°F)"
-        self.notify(f"Units set to {unit_str}")
-
-    def action_toggle_theme(self) -> None:
-        self.dark = not self.dark
-        theme = "Dark" if self.dark else "Light"
-        self.notify(f"Theme switched to {theme}")
-
-    def action_toggle_units(self) -> None:
-        global UNITS
-        UNITS = "imperial" if UNITS == "metric" else "metric"
-        self.update_footer()
-        self.load_default_dashboard()
-        # Refresh current view if it's search
-        if not self.query_one("#search-view").has_class("hidden"):
-            self.query_one("#search-input").action_submit()
 
     def load_default_dashboard(self) -> None:
         container = self.query_one("#dashboard-content")
@@ -260,17 +206,16 @@ class WeatherApp(App):
         container.query("*").remove()
         
         for city in default_cities:
-            params = {"q": city, "appid": API_KEY, "units": UNITS}
+            params = {"q": city, "appid": API_KEY, "units": "metric"}
             try:
                 response = requests.get(WEATHER_URL, params=params)
                 if response.status_code == 200:
                     data = response.json()
                     weather = Weather(data)
-                    unit_sym = "°C" if UNITS == "metric" else "°F"
                     container.mount(
                         Vertical(
                             Label(f"[b]{weather.city}[/b]", classes="city-name"),
-                            Label(f"{weather.temp_c}{unit_sym} - {weather.weather.capitalize()}", classes="condition"),
+                            Label(f"{weather.temp_c}°C - {weather.weather.capitalize()}", classes="condition"),
                             classes="weather-card"
                         )
                     )
@@ -348,7 +293,7 @@ class WeatherApp(App):
             results_container.query("Label").remove() # remove "Searching..."
         else:
             # Treat input as a city name
-            params = {"q": query, "appid": API_KEY, "units": UNITS}
+            params = {"q": query, "appid": API_KEY, "units": "metric"}
             try:
                 response = requests.get(WEATHER_URL, params=params)
                 results_container.query("*").remove()
@@ -364,13 +309,12 @@ class WeatherApp(App):
 
     def mount_weather_card(self, data: dict, container, tip=None, quote=None) -> None:
         city = data["City"]
-        temp = data["Temperature (°C)"] if UNITS == "metric" else data["Temperature (°C)"] # Note: keys in dict are still metric labels, let's fix that
+        temp = data["Temperature (°C)"]
         cond = data["Condition"]
-        unit_sym = "°C" if UNITS == "metric" else "°F"
         
         card = Vertical(
             Label(f"[b]{city}[/b]", classes="city-name"),
-            Label(f"Temp: {temp}{unit_sym}", classes="temp"),
+            Label(f"Temp: {temp}°C", classes="temp"),
             Label(f"Condition: {cond}", classes="condition"),
             classes="weather-card"
         )
@@ -380,7 +324,6 @@ class WeatherApp(App):
         
         actions = Horizontal(
             Button("Add to Favorites", id=f"add-fav-{city}"),
-            Button("View Forecast", id=f"forecast-{city}"),
             id="card-actions"
         )
         card.mount(actions)
@@ -397,47 +340,11 @@ class WeatherApp(App):
             FavoritesService.add_to_favorites(city)
             self.notify(f"Added {city} to Favorites!")
             self.update_favorites_view()
-        elif btn_id.startswith("forecast-"):
-            city = btn_id.replace("forecast-", "")
-            self.show_forecast(city)
         elif btn_id.startswith("country-"):
             country = btn_id.replace("country-", "")
             self.action_switch_view("search")
             self.query_one("#search-input").value = country
             self.query_one("#search-input").action_submit()
-
-    def show_forecast(self, city: str) -> None:
-        self.action_switch_view("forecast")
-        container = self.query_one("#forecast-content")
-        container.query("*").remove()
-        container.mount(Label(f"Fetching 24h forecast for {city}..."))
-
-        # Use OpenWeatherMap forecast API
-        FORECAST_URL = "http://api.openweathermap.org/data/2.5/forecast"
-        params = {"q": city, "appid": API_KEY, "units": UNITS}
-        try:
-            response = requests.get(FORECAST_URL, params=params)
-            container.query("*").remove()
-            if response.status_code == 200:
-                data = response.json()
-                # OpenWeatherMap returns 3-hour intervals. We'll show the next 8 (24 hours).
-                unit_sym = "°C" if UNITS == "metric" else "°F"
-                for item in data["list"][:8]:
-                    dt = item["dt_txt"]
-                    temp = item["main"]["temp"]
-                    desc = item["weather"][0]["description"].capitalize()
-                    container.mount(
-                        Horizontal(
-                            Label(f"{dt}: ", classes="forecast-time"),
-                            Label(f"{temp}{unit_sym}", classes="forecast-temp"),
-                            Label(f" - {desc}", classes="forecast-desc"),
-                            classes="forecast-row"
-                        )
-                    )
-            else:
-                container.mount(Label(f"Error: {response.status_code} - Could not fetch forecast."))
-        except Exception as e:
-            container.mount(Label(f"Error: {str(e)}"))
 
 if __name__ == "__main__":
     app = WeatherApp()

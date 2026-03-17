@@ -63,7 +63,14 @@ The app also offers helpful weather tips and motivational quotes to enhance your
 5. **Weather Tips and Quotes**:
    - Provides helpful tips and motivational quotes based on the current weather conditions.
 
-6. **Developer Information**:
+6. **Advanced TUI Interface**:
+   - Modern Terminal User Interface with sidebar navigation.
+   - Real-time dashboard with world weather hub.
+   - 24-hour forecasts with 3-hour interval details.
+   - Immediate Unit conversion (Metric/Imperial).
+   - Theme switching (Mocha Dark/Light).
+
+7. **Developer Information**:
    - Learn about the developers behind the app.
 
 ---
@@ -189,6 +196,7 @@ This project is licensed under the MIT License. See the `LICENSE` file for detai
 ---
 
 
+---
 
 ## **Team Responsibilities**
 
